@@ -69,14 +69,26 @@ class TkBuilder():
             close_children(tree.focus())
 
         def acquire_focus(event):
+            print("parents: ", end="")
+            for p in tree_view.parents_iter():
+                print(p)
             tree_view.parent.parent.navigator.current_inspector = tree_view.parent.parent #TODO make it clean
             event.widget
             tree.focus_set()
         
+        def handle_open_key(event):
+            if len(event.widget.selection()) == 0:
+                print("Nothing selected")
+            elif len(event.widget.selection()) > 1:
+                print("TODO: handler selection of more than 1 item")
+            else:
+                selected = event.widget.selection()[0]
+                tree_view.navigate(tree_view.object_bound_for(selected))
+        
         tree.bind('<<TreeviewOpen>>', handle_tree_view_open_event)
         tree.bind('<<TreeviewClose>>', handle_tree_view_close_event)
         tree.bind('<FocusIn>', acquire_focus)
-        tree.bind('<Control-o>', tree_view.handle_tree_key)
+        tree.bind('<Control-o>', handle_open_key)
         return tree
     
     def visit_ListView(self, list_view):
@@ -117,8 +129,9 @@ class TkBuilder():
         inspector_navigator.ui = self.top_ui()
         self.top_ui().title("pynspector")
         self.visit(inspector_navigator.inspectors[-1]).pack(fill="y", side="left")
-        # for inspector in inspector_navigator.inspectors[:2]:
-        #     self.visit(inspector).pack(fill="y", side="left")
+        def handle_close_key(event):
+            inspector_navigator.pop_inspector()
+        self.top_ui().bind("<Control-u>", handle_close_key)
         return self.pop_ui()
 
 
@@ -131,8 +144,17 @@ def add_inspector(inspector_navigator, ui):
     builder = TkBuilder()
     builder.push_ui(ui)
     if len(ui.winfo_children()) > 1:
-        ui.winfo_children()[0].destroy()
+        for children_to_hide in ui.winfo_children()[:-1]:
+            children_to_hide.pack_forget()
     inspector = inspector_navigator.inspectors[-1]
     builder.visit(inspector).pack(fill="y", side="left")
     builder.pop_ui()
+    return ui
+
+def remove_inspector(inspector_navigator, ui):
+    ui.winfo_children()[-1].destroy()
+    for child in ui.winfo_children()[-2:]:
+        child.pack_forget()
+    for child in ui.winfo_children()[-2:]:
+        child.pack(fill="y", side="left")
     return ui

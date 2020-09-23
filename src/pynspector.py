@@ -18,6 +18,11 @@ class InspectorView(metaclass=ABCMeta):
     
     def navigate(self, obj):
         self.parent.navigate(obj)
+    
+    def parents_iter(self):
+        if self.parent != None:
+            yield self.parent
+            self.parent.parents_iter()
 
 class TreeView(InspectorView):
     def __init__(self, children_accessor, *args, **kwargs):
@@ -56,15 +61,6 @@ class TreeView(InspectorView):
     
     def column_values_for(self, obj):
         return [ column.accessor(obj) for column in self.columns ]
-    
-    def handle_tree_key(self, event):
-        if len(event.widget.selection()) == 0:
-            print("Nothing selected")
-        elif len(event.widget.selection()) > 1:
-            print("TODO: handler selection of more than 1 item")
-        else:
-            selected = event.widget.selection()[0]
-            self.navigate(self.object_bound_for(selected))
 
 class TreeColumn():
     def __init__(self, name, accessor):
@@ -135,7 +131,7 @@ class Inspector():
         self.views.append(view)
     
     def navigate(self, obj):
-        self.navigator.add_inspector(inspector_for(obj))
+        self.navigator.push_inspector(inspector_for(obj))
 
 class InspectorNavigator():
     def __init__(self, initial_inspector):
@@ -160,11 +156,17 @@ class InspectorNavigator():
     def index_of(self, inspector):
         return self.inspectors.index(inspector)
     
-    def add_inspector(self, inspector):
+    def push_inspector(self, inspector):
         inspector.navigator = self
         if self.inspectors[-1] is self.current_inspector:
             self.inspectors.append(inspector)
             tkui.add_inspector(self, self.ui)
+    
+    def pop_inspector(self):
+        if len(self.inspectors) <= 1:
+            return
+        self.inspectors.pop()
+        tkui.remove_inspector(self, self.ui)
 
 class RawViewVariable():
     def __init__(self, name, value):
